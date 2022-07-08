@@ -22,6 +22,10 @@
 #include <linux/usb/usbnet.h>
 #include <linux/usb/cdc-wdm.h>
 
+// ELFY... not in 2.6 kernel usbnet.h by default.  
+extern int usbnet_write_cmd(struct usbnet *dev, u8 cmd, u8 reqtype,
+                                   u16 value, u16 index, const void *data, u16 size);
+
 /* This driver supports wwan (3G/LTE/?) devices using a vendor
  * specific management protocol called Qualcomm MSM Interface (QMI) -
  * in addition to the more common AT commands over serial interface
@@ -88,6 +92,52 @@ static ssize_t raw_ip_show(struct device *d, struct device_attribute *attr, char
 	return sprintf(buf, "%c\n", info->flags & QMI_WWAN_FLAG_RAWIP ? 'Y' : 'N');
 }
 
+/**
+ * strtobool - convert common user inputs into boolean values
+ * @s: input string
+ * @res: result
+ *
+ * This routine returns 0 iff the first character is one of 'Yy1Nn0', or
+ * [oO][NnFf] for "on" and "off". Otherwise it will return -EINVAL.  Value
+ * pointed to by res is updated upon finding a match.
+ */
+int strtobool(const char *s, bool *res)
+{
+	if (!s)
+		return -EINVAL;
+
+	switch (s[0]) {
+	case 'y':
+	case 'Y':
+	case '1':
+		*res = true;
+		return 0;
+	case 'n':
+	case 'N':
+	case '0':
+		*res = false;
+		return 0;
+	case 'o':
+	case 'O':
+		switch (s[1]) {
+		case 'n':
+		case 'N':
+			*res = true;
+			return 0;
+		case 'f':
+		case 'F':
+			*res = false;
+			return 0;
+		default:
+			break;
+		}
+	default:
+		break;
+	}
+
+	return -EINVAL;
+}
+
 static ssize_t raw_ip_store(struct device *d,  struct device_attribute *attr, const char *buf, size_t len)
 {
 	struct usbnet *dev = netdev_priv(to_net_dev(d));
@@ -132,7 +182,9 @@ err:
 	return ret;
 }
 
-static DEVICE_ATTR_RW(raw_ip);
+// DEVICE_ATTR_RW not defined in kernel 2.6.  switch to explit syntax
+//static DEVICE_ATTR_RW(raw_ip);
+static DEVICE_ATTR(raw_ip, 0644, raw_ip_show, raw_ip_store);
 
 static struct attribute *qmi_wwan_sysfs_attrs[] = {
 	&dev_attr_raw_ip.attr,
@@ -211,7 +263,10 @@ static int qmi_wwan_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
 	skb_push(skb, ETH_HLEN);
 	skb_reset_mac_header(skb);
 	eth_hdr(skb)->h_proto = proto;
-	eth_zero_addr(eth_hdr(skb)->h_source);
+	// eth_zero_addr(eth_hdr(skb)->h_source);  # desired but not in kernel 2.6
+	// NOTE: upstream etherdevice.h inline definition of eth_zero_addr: memset(addr, 0x00, ETH_ALEN);
+	memset(eth_hdr(skb)->h_source, 0x00, ETH_ALEN);  // ELFY put this
+
 fix_dest:
 	memcpy(eth_hdr(skb)->h_dest, dev->net->dev_addr, ETH_ALEN);
 	return 1;
@@ -221,6 +276,26 @@ fix_dest:
 static bool possibly_iphdr(const char *data)
 {
 	return (data[0] & 0xd0) == 0x40;
+}
+
+// ELFY NOT exported IN 2.6 kernel.  Copy from upstream net/ethernet/eth.c
+int eth_prepare_mac_addr_change(struct net_device *dev, void *p)
+{
+	struct sockaddr *addr = p;
+
+	// ELFY - 2.6 kernel does not expose IFF_LIVE_ADDR_CHANGE.  hack to never allow running change
+	//if (!(dev->priv_flags & IFF_LIVE_ADDR_CHANGE) && netif_running(dev))
+	if (netif_running(dev))
+		return -EBUSY;
+	if (!is_valid_ether_addr(addr->sa_data))
+		return -EADDRNOTAVAIL;
+	return 0;
+}
+void eth_commit_mac_addr_change(struct net_device *dev, void *p)
+{
+	struct sockaddr *addr = p;
+
+	memcpy(dev->dev_addr, addr->sa_data, ETH_ALEN);
 }
 
 /* disallow addresses which may be confused with IP headers */
@@ -340,17 +415,33 @@ static int qmi_wwan_change_dtr(struct usbnet *dev, bool on)
 				on ? 0x01 : 0x00, intf, NULL, 0);
 }
 
+static inline bool ether_addr_equal(const u8 *addr1, const u8 *addr2)
+{
+#if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS)
+	u32 fold = ((*(const u32 *)addr1) ^ (*(const u32 *)addr2)) |
+		   ((*(const u16 *)(addr1 + 4)) ^ (*(const u16 *)(addr2 + 4)));
+
+	return fold == 0;
+#else
+	const u16 *a = (const u16 *)addr1;
+	const u16 *b = (const u16 *)addr2;
+
+	return ((a[0] ^ b[0]) | (a[1] ^ b[1]) | (a[2] ^ b[2])) == 0;
+#endif
+}
+
 static int qmi_wwan_bind(struct usbnet *dev, struct usb_interface *intf)
 {
 	int status = -1;
 	u8 *buf = intf->cur_altsetting->extra;
 	int len = intf->cur_altsetting->extralen;
 	struct usb_interface_descriptor *desc = &intf->cur_altsetting->desc;
-	struct usb_cdc_union_desc *cdc_union;
-	struct usb_cdc_ether_desc *cdc_ether;
+	struct usb_cdc_union_desc *cdc_union = NULL;
+	struct usb_cdc_ether_desc *cdc_ether = NULL;
 	struct usb_driver *driver = driver_of(intf);
 	struct qmi_wwan_state *info = (void *)&dev->data;
-	struct usb_cdc_parsed_header hdr;
+	//struct usb_cdc_parsed_header hdr;
+        u32 found = 0;
 
 	BUILD_BUG_ON((sizeof(((struct usbnet *)0)->data) <
 		      sizeof(struct qmi_wwan_state)));
@@ -360,9 +451,66 @@ static int qmi_wwan_bind(struct usbnet *dev, struct usb_interface *intf)
 	info->data = intf;
 
 	/* and a number of CDC descriptors */
-	cdc_parse_cdc_header(&hdr, intf, buf, len);
-	cdc_union = hdr.usb_cdc_union_desc;
-	cdc_ether = hdr.usb_cdc_ether_desc;
+	// ELFY...  this functionality isn't in kernel 2.6.  pull logic from original driver instead
+	// 
+	//cdc_parse_cdc_header(&hdr, intf, buf, len);
+	//cdc_union = hdr.usb_cdc_union_desc;
+	//cdc_ether = hdr.usb_cdc_ether_desc;
+        while (len > 3) {
+                struct usb_descriptor_header *h = (void *)buf;
+
+                /* ignore any misplaced descriptors */
+                if (h->bDescriptorType != USB_DT_CS_INTERFACE)
+                        goto next_desc;
+
+                /* buf[2] is CDC descriptor subtype */
+                switch (buf[2]) {
+                case USB_CDC_HEADER_TYPE:
+                        if (found & 1 << USB_CDC_HEADER_TYPE) {
+                                dev_dbg(&intf->dev, "extra CDC header\n");
+                                goto err;
+                        }
+                        if (h->bLength != sizeof(struct usb_cdc_header_desc)) {
+                                dev_dbg(&intf->dev, "CDC header len %u\n", h->bLength);
+                                goto err;
+                        }
+                        break;
+                case USB_CDC_UNION_TYPE:
+                        if (found & 1 << USB_CDC_UNION_TYPE) {
+                                dev_dbg(&intf->dev, "extra CDC union\n");
+                                goto err;
+                        }
+                        if (h->bLength != sizeof(struct usb_cdc_union_desc)) {
+                                dev_dbg(&intf->dev, "CDC union len %u\n", h->bLength);
+                                goto err;
+                        }
+                        cdc_union = (struct usb_cdc_union_desc *)buf;
+                        break;
+                case USB_CDC_ETHERNET_TYPE:
+                        if (found & 1 << USB_CDC_ETHERNET_TYPE) {
+                                dev_dbg(&intf->dev, "extra CDC ether\n");
+                                goto err;
+                        }
+                        if (h->bLength != sizeof(struct usb_cdc_ether_desc)) {
+                                dev_dbg(&intf->dev, "CDC ether len %u\n",  h->bLength);
+                                goto err;
+                        }
+                        cdc_ether = (struct usb_cdc_ether_desc *)buf;
+                        break;
+                }
+
+                /*
+                 * Remember which CDC functional descriptors we've seen.  Works
+                 * for all types we care about, of which USB_CDC_ETHERNET_TYPE
+                 * (0x0f) is the highest numbered
+                 */
+                if (buf[2] < 32)
+                        found |= 1 << buf[2];
+
+next_desc:
+                len -= h->bLength;
+                buf += h->bLength;
+        }
 
 	/* Use separate control and data interfaces if we found a CDC Union */
 	if (cdc_union) {
@@ -422,9 +570,18 @@ static int qmi_wwan_bind(struct usbnet *dev, struct usb_interface *intf)
 	 * buggy firmware told us to. Or, if device is assigned the well-known
 	 * buggy firmware MAC address, replace it with a random address,
 	 */
+	// ELFY...  need to manually do this because eth_hw_addr_random is not defined in 2.6.
+	// pull logic from upstream etherdevice.h
 	if (ether_addr_equal(dev->net->dev_addr, default_modem_addr) ||
 	    ether_addr_equal(dev->net->dev_addr, buggy_fw_addr))
-		eth_hw_addr_random(dev->net);
+		//eth_hw_addr_random(dev->net);
+	    {
+		dev->net->addr_assign_type=NET_ADDR_RANDOM;
+		//eth_random_addr(dev->net->dev_addr)
+		get_random_bytes(dev->net->dev_addr, ETH_ALEN);
+		dev->net->dev_addr[0] &= 0xfe;  /* clear multicast bit */
+		dev->net->dev_addr[0] |= 0x02;  /* set Local assignment bit (IEEE802) */
+    	    }
 
 	/* make MAC addr easily distinguishable from an IP header */
 	if (possibly_iphdr(dev->net->dev_addr)) {
@@ -999,11 +1156,22 @@ static struct usb_driver qmi_wwan_driver = {
 	.suspend	      = qmi_wwan_suspend,
 	.resume		      =	qmi_wwan_resume,
 	.reset_resume         = qmi_wwan_resume,
-	.supports_autosuspend = 1,
-	.disable_hub_initiated_lpm = 1,
+	//.supports_autosuspend = 1,
+	//.disable_hub_initiated_lpm = 1,
 };
 
-module_usb_driver(qmi_wwan_driver);
+//module_usb_driver(qmi_wwan_driver);
+static int __init qmi_wwan_init(void)
+{
+       return usb_register(&qmi_wwan_driver);
+}
+module_init(qmi_wwan_init);
+
+static void __exit qmi_wwan_exit(void)
+{
+       usb_deregister(&qmi_wwan_driver);
+}
+module_exit(qmi_wwan_exit);
 
 MODULE_AUTHOR("Bjørn Mork <bjorn@mork.no>");
 MODULE_DESCRIPTION("Qualcomm MSM Interface (QMI) WWAN driver");
