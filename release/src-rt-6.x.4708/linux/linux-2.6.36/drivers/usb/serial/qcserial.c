@@ -78,6 +78,7 @@ static const struct usb_device_id id_table[] = {
 	{USB_DEVICE(0x1199, 0x9008)},	/* Sierra Wireless Gobi 2000 Modem device (VT773) */
 	{USB_DEVICE(0x1199, 0x9009)},	/* Sierra Wireless Gobi 2000 Modem device (VT773) */
 	{USB_DEVICE(0x1199, 0x900a)},	/* Sierra Wireless Gobi 2000 Modem device (VT773) */
+	{USB_DEVICE(0x1199, 0x9071)},	/* Sierra Wireless EM7455 */
 	{USB_DEVICE(0x16d8, 0x8001)},	/* CMDTech Gobi 2000 QDL device (VU922) */
 	{USB_DEVICE(0x16d8, 0x8002)},	/* CMDTech Gobi 2000 Modem device (VU922) */
 	{USB_DEVICE(0x05c6, 0x9204)},	/* Gobi 2000 QDL device */
@@ -149,21 +150,32 @@ static int qcprobe(struct usb_serial *serial, const struct usb_device_id *id)
 
 	case 3:
 	case 4:
+	      {
 		/* Composite mode */
-		if (ifnum == 2) {
-			dbg("Modem port found");
-			retval = usb_set_interface(serial->dev, ifnum, 0);
-			if (retval < 0) {
-				dev_err(&serial->dev->dev,
-					"Could not set interface, error %d\n",
-					retval);
-				retval = -ENODEV;
-				kfree(data);
-			}
-			return retval;
+	        /* See qcserial driver head master QCSERIAL_SWI handling*/
+                /* 0 = DM/DIAG interface
+                 * 2 = GPS interface
+                 * 3 = AT command interface */
+                int good;
+                good=0;
+                if(ifnum==0) { good=1; dbg("Serial port found! - DM/DIAG (0)"); }
+                if(ifnum==2) { good=1; dbg("Serial port found! - GPS (2)"); }
+                if(ifnum==3) { good=1; dbg("Serial port found! - AT coomand (3)"); }
+                if(!good) {
+                  dev_err(&serial->dev->dev, "qcserial ignoring interface: %d\n", ifnum);
+                  kfree(data);
+                  return -ENODEV;  /* Do not claim non-AT modem ports */
+                } else {
+                  retval = usb_set_interface(serial->dev, ifnum, 0);
+                  if (retval < 0) {
+                    dev_err(&serial->dev->dev, "Could not set interface, error %d\n", retval);
+                    retval = -ENODEV;
+                    kfree(data);
+                  }
 		}
+                return retval;
+	      }
 		break;
-
 	default:
 		dev_err(&serial->dev->dev,
 			"unknown number of interfaces: %d\n", nintf);

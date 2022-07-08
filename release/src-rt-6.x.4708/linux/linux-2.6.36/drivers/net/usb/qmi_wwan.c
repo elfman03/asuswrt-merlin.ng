@@ -54,6 +54,11 @@ struct qmi_wwan_state {
 	struct usb_interface *data;
 };
 
+// ELFY DTR quirk backport from upstream qmi_wwan driver
+enum qmi_wwan_quirks {
+	QMI_WWAN_QUIRK_DTR = 1 << 0,	/* needs "set DTR" request */
+};
+
 /* default ethernet address used by the modem */
 static const u8 default_modem_addr[ETH_ALEN] = {0x02, 0x50, 0xf3};
 
@@ -218,6 +223,22 @@ static const struct net_device_ops qmi_wwan_netdev_ops = {
 	.ndo_set_mac_address	= qmi_wwan_mac_addr
 };
 
+extern int usbnet_write_cmd(struct usbnet *dev, u8 cmd, u8 reqtype,
+		                    u16 value, u16 index, const void *data, u16 size);
+/* Send CDC SetControlLineState request, setting or clearing the DTR.
+ * "Required for Autoconnect and 9x30 to wake up" according to the
+ * GobiNet driver. The requirement has been verified on an MDM9230
+ * based Sierra Wireless MC7455
+ */
+static int qmi_wwan_change_dtr(struct usbnet *dev, bool on)
+{
+	u8 intf = dev->intf->cur_altsetting->desc.bInterfaceNumber;
+
+	return usbnet_write_cmd(dev, USB_CDC_REQ_SET_CONTROL_LINE_STATE,
+				USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE,
+				on ? 0x01 : 0x00, intf, NULL, 0);
+}
+
 static int qmi_wwan_bind(struct usbnet *dev, struct usb_interface *intf)
 {
 	int status = -1;
@@ -322,6 +343,29 @@ next_desc:
 		usb_driver_release_interface(driver, info->data);
 	}
 
+	/* disabling remote wakeup on MDM9x30 devices has the same
+	  * effect as clearing DTR. The device will not respond to QMI
+	  * requests until we set DTR again.  This is similar to a
+	  * QMI_CTL SYNC request, clearing a lot of firmware state
+	  * including the client ID allocations.
+	  *
+	  * Our usage model allows a session to span multiple
+	  * open/close events, so we must prevent the firmware from
+	  * clearing out state the clients might need.
+	  *
+	  * MDM9x30 is the first QMI chipset with USB3 support. Abuse
+	  * this fact to enable the quirk for all USB3 devices.
+	  *
+	  * There are also chipsets with the same "set DTR" requirement
+	  * but without USB3 support.  Devices based on these chips
+	  * need a quirk flag in the device ID table.
+	  */
+	if (dev->driver_info->data & QMI_WWAN_QUIRK_DTR ||
+	    le16_to_cpu(dev->udev->descriptor.bcdUSB) >= 0x0201) {
+		qmi_wwan_manage_power(dev, 1);
+		qmi_wwan_change_dtr(dev, true);
+								}
+
 	/* Never use the same address on both ends of the link, even if the
 	 * buggy firmware told us to. Or, if device is assigned the well-known
 	 * buggy firmware MAC address, replace it with a random address,
@@ -417,12 +461,29 @@ static const struct driver_info	qmi_wwan_info = {
 	.rx_fixup       = qmi_wwan_rx_fixup,
 };
 
+static const struct driver_info	qmi_wwan_info_quirk_dtr = {
+	.description	= "WWAN/QMI device",
+//	.flags		= FLAG_WWAN | FLAG_SEND_ZLP,
+	.flags		= 0,
+	.bind		= qmi_wwan_bind,
+	.unbind		= qmi_wwan_unbind,
+//	.manage_power	= qmi_wwan_manage_power,
+	.rx_fixup       = qmi_wwan_rx_fixup,
+	.data           = QMI_WWAN_QUIRK_DTR,
+};
+
 #define HUAWEI_VENDOR_ID	0x12D1
 
 /* map QMI/wwan function by a fixed interface number */
 #define QMI_FIXED_INTF(vend, prod, num) \
 	USB_DEVICE_INTERFACE_NUMBER(vend, prod, num), \
 	.driver_info = (unsigned long)&qmi_wwan_info
+
+// ELFY SEE upstream head of qmi_wwan
+/* devices requiring "set DTR" quirk */
+#define QMI_QUIRK_SET_DTR(vend, prod, num) \
+	USB_DEVICE_INTERFACE_NUMBER(vend, prod, num), \
+	.driver_info = (unsigned long)&qmi_wwan_info_quirk_dtr
 
 /* Gobi 1000 QMI/wwan interface number is 3 according to qcserial */
 #define QMI_GOBI1K_DEVICE(vend, prod) \
@@ -563,6 +624,7 @@ static const struct usb_device_id products[] = {
 	{QMI_FIXED_INTF(0x1199, 0x68a2, 8)},	/* Sierra Wireless MC7710 in QMI mode */
 	{QMI_FIXED_INTF(0x1199, 0x68a2, 19)},	/* Sierra Wireless MC7710 in QMI mode */
 	{QMI_FIXED_INTF(0x1199, 0x901c, 8)},    /* Sierra Wireless EM7700 */
+	{QMI_QUIRK_SET_DTR(0x1199, 0x9071, 8)},    /* Sierra Wireless EM7455 in QMI mode */
 	{QMI_FIXED_INTF(0x1bbb, 0x011e, 4)},	/* Telekom Speedstick LTE II (Alcatel One Touch L100V LTE) */
 	{QMI_FIXED_INTF(0x2357, 0x0201, 4)},	/* TP-LINK HSUPA Modem MA180 */
 	{QMI_FIXED_INTF(0x1bc7, 0x1200, 5)},	/* Telit LE920 */
