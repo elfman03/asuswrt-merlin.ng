@@ -1122,12 +1122,29 @@ static bool quectel_ec20_detected(struct usb_interface *intf)
 
 	return false;
 }
+static bool em7455_detected(struct usb_interface *intf)
+{
+	struct usb_device *dev = interface_to_usbdev(intf);
+
+	if (dev->actconfig &&
+	    le16_to_cpu(dev->descriptor.idVendor) == 0x1199 &&
+	    le16_to_cpu(dev->descriptor.idProduct) == 0x9071)
+		return true;
+
+	return false;
+}
+
 
 static int qmi_wwan_probe(struct usb_interface *intf,
 			  const struct usb_device_id *prod)
 {
 	struct usb_device_id *id = (struct usb_device_id *)prod;
 	struct usb_interface_descriptor *desc = &intf->cur_altsetting->desc;
+
+	if (em7455_detected(intf) && desc->bInterfaceNumber != 8) {
+		dev_dbg(&intf->dev, "EM7455 quirk, skipping all interfaces but 8\n");
+		return -ENODEV;
+	}
 
 	/* Workaround to enable dynamic IDs.  This disables usbnet
 	 * blacklisting functionality.  Which, if required, can be
@@ -1144,7 +1161,6 @@ static int qmi_wwan_probe(struct usb_interface *intf,
 		dev_dbg(&intf->dev, "Quectel EC20 quirk, skipping interface 0\n");
 		return -ENODEV;
 	}
-
 	return usbnet_probe(intf, id);
 }
 
