@@ -74,10 +74,15 @@ static void qmi_wwan_netdev_setup(struct net_device *net)
 		net->hard_header_len = 0;
 		net->addr_len        = 0;
 		net->flags           = IFF_POINTOPOINT | IFF_NOARP | IFF_MULTICAST;
+//https://patchwork.ozlabs.org/project/lede/patch/1518704164-22198-2-git-send-email-koen.vandeputte@ncentric.com/
+set_bit(EVENT_NO_IP_ALIGN,&dev->flags); 
 		netdev_dbg(net, "mode: raw IP\n");
+	   printk(KERN_INFO KBUILD_MODNAME ": initiate mode: raw IP\n");
 	} else if (!net->header_ops) { /* don't bother if already set */
 		ether_setup(net);
+clear_bit(EVENT_NO_IP_ALIGN,&dev->flags); 
 		netdev_dbg(net, "mode: Ethernet\n");
+	   printk(KERN_INFO KBUILD_MODNAME ": initiate mode: ethernet\n");
 	}
 
 	/* recalculate buffers after changing hard_header_len */
@@ -158,6 +163,7 @@ static ssize_t raw_ip_store(struct device *d,  struct device_attribute *attr, co
 	/* we don't want to modify a running netdev */
 	if (netif_running(dev->net)) {
 		netdev_err(dev->net, "Cannot change a running device\n");
+    	        printk(KERN_INFO KBUILD_MODNAME "device is running.  cannot change mode... :-(\n");
 		ret = -EBUSY;
 		goto err;
 	}
@@ -167,16 +173,21 @@ static ssize_t raw_ip_store(struct device *d,  struct device_attribute *attr, co
 	ret = notifier_to_errno(ret);
 	if (ret) {
 		netdev_err(dev->net, "Type change was refused\n");
+    	        printk(KERN_INFO KBUILD_MODNAME "Raw type change refused... :-(\n");
 		goto err;
 	}
 
-	if (enable)
+	if (enable) {
 		info->flags |= QMI_WWAN_FLAG_RAWIP;
-	else
+    	        printk(KERN_INFO KBUILD_MODNAME "Attempting to enable RAWIP mode\n");
+	} else {
+    	        printk(KERN_INFO KBUILD_MODNAME "Attempting to disable RAWIP mode\n");
 		info->flags &= ~QMI_WWAN_FLAG_RAWIP;
+	}
 	qmi_wwan_netdev_setup(dev->net);
 	call_netdevice_notifiers(NETDEV_POST_TYPE_CHANGE, dev->net);
 	ret = len;
+    	printk(KERN_INFO KBUILD_MODNAME "Made it to the end of the ethernet mode set without error\n");
 err:
 	rtnl_unlock();
 	return ret;
@@ -227,6 +238,12 @@ static int qmi_wwan_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
 	bool rawip = info->flags & QMI_WWAN_FLAG_RAWIP;
 	__be16 proto;
 
+	if(rawip) {
+    	  printk(KERN_INFO KBUILD_MODNAME "RX Fixup called - RAWIP");
+	} else {
+    	  printk(KERN_INFO KBUILD_MODNAME "RX Fixup called - ethernet");
+	}
+
 	/* This check is no longer done by usbnet */
 	if (skb->len < dev->net->hard_header_len)
 		return 0;
@@ -252,12 +269,15 @@ static int qmi_wwan_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
 		/* pass along other packets without modifications */
 		return 1;
 	}
+    	printk(KERN_INFO KBUILD_MODNAME "fixup after switch block");
 	if (rawip) {
+		skb_reset_mac_header(skb);
 		skb->dev = dev->net; /* normally set by eth_type_trans */
 		skb->protocol = proto;
 		return 1;
 	}
 
+    	printk(KERN_INFO KBUILD_MODNAME "should not be here 1");
 	if (skb_headroom(skb) < ETH_HLEN)
 		return 0;
 	skb_push(skb, ETH_HLEN);
@@ -268,6 +288,7 @@ static int qmi_wwan_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
 	memset(eth_hdr(skb)->h_source, 0x00, ETH_ALEN);  // ELFY put this
 
 fix_dest:
+    	printk(KERN_INFO KBUILD_MODNAME "should not be here 2");
 	memcpy(eth_hdr(skb)->h_dest, dev->net->dev_addr, ETH_ALEN);
 	return 1;
 }

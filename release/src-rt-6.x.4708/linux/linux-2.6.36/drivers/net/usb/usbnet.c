@@ -223,7 +223,7 @@ static int init_status (struct usbnet *dev, struct usb_interface *intf)
  * Some link protocols batch packets, so their rx_fixup paths
  * can return clones as well as just modify the original skb.
  */
-void usbnet_skb_return (struct usbnet *dev, struct sk_buff *skb)
+void usbnet_skb_return_26 (struct usbnet *dev, struct sk_buff *skb)
 {
 	int	status;
 
@@ -238,11 +238,55 @@ void usbnet_skb_return (struct usbnet *dev, struct sk_buff *skb)
 
 	netif_dbg(dev, rx_status, dev->net, "< rx, len %zu, type 0x%x\n",
 		  skb->len + sizeof (struct ethhdr), skb->protocol);
+	printk(KERN_INFO KBUILD_MODNAME "< rx, len %u, type 0x%x\n",
+		  skb->len + sizeof (struct ethhdr), skb->protocol);
 	memset (skb->cb, 0, sizeof (struct skb_data));
 	status = netif_rx (skb);
-	if (status != NET_RX_SUCCESS)
+	if (status != NET_RX_SUCCESS) {
 		netif_dbg(dev, rx_err, dev->net,
 			  "netif_rx status %d\n", status);
+	        printk(KERN_INFO KBUILD_MODNAME "netif_rx status %d\n", status);
+	}
+}
+/* From 2.14.215 kernel */
+void usbnet_skb_return (struct usbnet *dev, struct sk_buff *skb)
+{
+	//struct pcpu_sw_netstats *stats64 = this_cpu_ptr(dev->stats64);
+	unsigned long flags;
+	int	status;
+
+	if (test_bit(EVENT_RX_PAUSED, &dev->flags)) {
+		skb_queue_tail(&dev->rxq_pause, skb);
+		return;
+	}
+
+	/* only update if unset to allow minidriver rx_fixup override */
+	if (skb->protocol == 0)
+		skb->protocol = eth_type_trans (skb, dev->net);
+
+	dev->net->stats.rx_packets++;
+	dev->net->stats.rx_bytes += skb->len;
+        // keep 2.6 kernel status and comment this out
+	//flags = u64_stats_update_begin_irqsave(&stats64->syncp);
+	//stats64->rx_packets++;
+	//stats64->rx_bytes += skb->len;
+	//u64_stats_update_end_irqrestore(&stats64->syncp, flags);
+
+	netif_dbg(dev, rx_status, dev->net, "< rx, len %zu, type 0x%x\n",
+		  skb->len + sizeof (struct ethhdr), skb->protocol);
+	printk(KERN_INFO KBUILD_MODNAME "< rx, len %u, type 0x%x\n",
+		  skb->len + sizeof (struct ethhdr), skb->protocol);
+	memset (skb->cb, 0, sizeof (struct skb_data));
+
+	if (skb_defer_rx_timestamp(skb))
+		return;
+
+	status = netif_rx (skb);
+	if (status != NET_RX_SUCCESS) {
+		netif_dbg(dev, rx_err, dev->net,
+			  "netif_rx status %d\n", status);
+	        printk(KERN_INFO KBUILD_MODNAME "netif_rx status %d\n", status);
+        }
 }
 EXPORT_SYMBOL_GPL(usbnet_skb_return);
 
@@ -349,7 +393,12 @@ static int rx_submit (struct usbnet *dev, struct urb *urb, gfp_t flags)
 		return -ENOLINK;
 	}
 
-	skb = __netdev_alloc_skb_ip_align(dev->net, size, flags);
+	//skb = __netdev_alloc_skb_ip_align(dev->net, size, flags);
+	// https://patchwork.ozlabs.org/project/lede/patch/1518704164-22198-2-git-send-email-koen.vandeputte@ncentric.com/
+	if (test_bit(EVENT_NO_IP_ALIGN, &dev->flags))
+		skb = __netdev_alloc_skb(dev->net, size, flags);
+	else
+		skb = __netdev_alloc_skb_ip_align(dev->net, size, flags);
 	if (!skb) {
 		netif_dbg(dev, rx_err, dev->net, "no rx skb\n");
 		usbnet_defer_kevent (dev, EVENT_RX_MEMORY);
@@ -408,7 +457,7 @@ static int rx_submit (struct usbnet *dev, struct urb *urb, gfp_t flags)
 
 /*-------------------------------------------------------------------------*/
 
-static inline void rx_process (struct usbnet *dev, struct sk_buff *skb)
+static inline void rx_process_v26 (struct usbnet *dev, struct sk_buff *skb)
 {
 	if (dev->driver_info->rx_fixup &&
 	    !dev->driver_info->rx_fixup (dev, skb))
@@ -429,6 +478,37 @@ error:
 	dev->net->stats.rx_errors++;
 	skb_queue_tail(&dev->done, skb);
 }
+
+// from upstream usbnet master
+//
+static inline void rx_process (struct usbnet *dev, struct sk_buff *skb)
+{
+	if (dev->driver_info->rx_fixup &&
+	    !dev->driver_info->rx_fixup (dev, skb)) {
+		/* With RX_ASSEMBLE, rx_fixup() must update counters */
+		//if (!(dev->driver_info->flags & FLAG_RX_ASSEMBLE))
+			dev->net->stats.rx_errors++;
+		goto done;
+	}
+	// else network stack removes extra byte if we forced a short packet
+
+	/* all data was already cloned from skb inside the driver */
+	if (dev->driver_info->flags & FLAG_MULTI_PACKET)
+		goto done;
+
+	if (skb->len < ETH_HLEN) {
+		dev->net->stats.rx_errors++;
+		dev->net->stats.rx_length_errors++;
+		netif_dbg(dev, rx_err, dev->net, "rx length %d\n", skb->len);
+	} else {
+		usbnet_skb_return(dev, skb);
+		return;
+	}
+
+done:
+	skb_queue_tail(&dev->done, skb);
+}
+
 
 /*-------------------------------------------------------------------------*/
 
