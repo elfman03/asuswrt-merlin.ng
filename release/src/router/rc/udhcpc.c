@@ -330,6 +330,8 @@ bound(int renew)
 	char tmp2[100], prefix2[32];
 #endif
 
+char etmp[512];
+nvram_set("elfy_position","dhcpc bound() start"); nvram_commit();
 	/* Figure out nvram variable name prefix for this i/f */
 	if ((ifunit = wan_prefix(wan_ifname, wanprefix)) < 0)
 		return -1;
@@ -535,13 +537,17 @@ bound(int renew)
 #if defined(RTCONFIG_COOVACHILLI)
 	restart_coovachilli_if_conflicts(nvram_pf_get(prefix, "ipaddr"), nvram_pf_get(prefix, "netmask"));
 #endif
-
 	/* Clean nat conntrack for this interface,
 	 * but skip physical VPN subinterface for PPTP/L2TP */
+nvram_set("elfy_position","dhcpc bound() about to bring up net"); nvram_commit();
 	if (changed && !(unit < 0 &&
 	    (nvram_match(strcat_r(wanprefix, "proto", tmp), "l2tp") ||
-	     nvram_match(strcat_r(wanprefix, "proto", tmp), "pptp"))))
+	     nvram_match(strcat_r(wanprefix, "proto", tmp), "pptp")))) {
+nvram_set("elfy_extra2","dhcpc bound() running ifup"); nvram_commit();
 		ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);
+	}
+sprintf(etmp, "ifconfig ip=%s mask=%s",nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)),nvram_safe_get(strcat_r(prefix, "netmask", tmp)));
+nvram_set("elfy_extra1",etmp); nvram_commit();
 	ifconfig(wan_ifname, IFUP,
 		 nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)),
 		 nvram_safe_get(strcat_r(prefix, "netmask", tmp)));
@@ -552,7 +558,9 @@ bound(int renew)
 	}
 #endif
 
+nvram_set("elfy_position","udhcpc bound() calling wan_up"); nvram_commit();
 	wan_up(wan_ifname);
+nvram_set("elfy_position","udhcpc bound() back from wan_up"); nvram_commit();
 
 	logmessage("dhcp client", "%s %s/%s via %s for %d seconds.",
 		renew ? "renew" : "bound",
@@ -562,6 +570,7 @@ bound(int renew)
 		nvram_get_int(strcat_r(prefix, "lease", tmp)));
 
 	_dprintf("udhcpc:: %s done\n", __FUNCTION__);
+nvram_set("elfy_position","dhcpc bound() returning"); nvram_commit();
 	return 0;
 }
 

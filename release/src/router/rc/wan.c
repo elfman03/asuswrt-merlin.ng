@@ -105,6 +105,9 @@ static char mac_clone[MAX_MAC_NUM][18];
 
 void convert_wan_nvram(char *prefix, int unit);
 
+#define ESLEEPA 1
+#define ESLEEPB 60
+
 #if defined(DSL_N55U) || defined(DSL_N55U_B)
 int classATargetTable[]={
 	1,
@@ -173,6 +176,8 @@ void check_wan_nvram(void){
 	if(nvram_match("wan1_proto", "")) nvram_set("wan1_proto", "dhcp");
 }
 #else
+#endif
+#if 1
 int add_multi_routes(int check_link, int wan_unit){
 	int unit;
 	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
@@ -181,8 +186,11 @@ int add_multi_routes(int check_link, int wan_unit){
 	char wan_multi_if[WAN_UNIT_MAX][32], wan_multi_gate[WAN_UNIT_MAX][32];
 	int debug = nvram_get_int("routes_debug");
 	int lock;
+nvram_set("elfyb_position","multi point 0a..."); nvram_commit();
+sleep(ESLEEPB); nvram_set("elfyb_position","multi point 0b..."); nvram_commit();
 	lock = file_lock("mt_routes");
 _dprintf("add_multi_routes: running..., unit=%d\n", wan_unit);
+sleep(ESLEEPB); nvram_set("elfyb_position","multi point 1..."); nvram_commit();
 
 	// clean the rules of routing table and re-build them then.
 	system("ip rule flush");
@@ -191,6 +199,7 @@ _dprintf("add_multi_routes: running..., unit=%d\n", wan_unit);
 
 	memset(wan_multi_if, 0, sizeof(char)*WAN_UNIT_MAX*32);
 	memset(wan_multi_gate, 0, sizeof(char)*WAN_UNIT_MAX*32);
+sleep(ESLEEPB); nvram_set("elfyb_position","multi point 2..."); nvram_commit();
 
 	for(unit = WAN_UNIT_FIRST; unit < WAN_UNIT_MAX; ++unit){ // Multipath
 		if(unit != wan_primary_ifunit())
@@ -204,28 +213,34 @@ _dprintf("add_multi_routes: running..., unit=%d\n", wan_unit);
 		// when wan_down().
 		if(check_link && !is_wan_connect(unit)){
 _dprintf("add_multi_routes: skip because of the result of is_wan_connect(%d)...\n", unit);
+sleep(ESLEEPB); nvram_set("elfyb_position","multi point 3... skip because not link connected"); nvram_commit();
 			continue;
 		}
 
 		snprintf(cmd, sizeof(cmd), "ip route replace %s dev %s proto kernel", wan_multi_gate[unit], wan_multi_if[unit]);
 if(debug) printf("test 10. cmd=%s.\n", cmd);
+sleep(ESLEEPB); nvram_set("elfyb_position",cmd); nvram_commit();
 		system(cmd);
 
 		// set the default gateway.
 		snprintf(cmd, sizeof(cmd), "ip route replace default via %s dev %s", wan_multi_gate[unit], wan_multi_if[unit]);
 if(debug) printf("test 11. cmd=%s.\n", cmd);
+sleep(ESLEEPB); nvram_set("elfyb_position",cmd); nvram_commit();
 		system(cmd);
 
 		if(!strcmp(wan_proto, "pptp") || !strcmp(wan_proto, "l2tp")){
 			snprintf(cmd, sizeof(cmd), "ip route del %s dev %s 2>/dev/null", wan_multi_gate[unit], wan_multi_if[unit]);
 if(debug) printf("test 12. cmd=%s.\n", cmd);
+sleep(ESLEEPB); nvram_set("elfyb_position",cmd); nvram_commit();
 			system(cmd);
 		}
 	}
 
+sleep(ESLEEPB); nvram_set("elfyb_position","route flush"); nvram_commit();
 if(debug) printf("test 26. route flush cache.\n");
 	system("ip route flush cache");
 
+sleep(ESLEEPB); nvram_set("elfyb_position","multiroute returning"); nvram_commit();
 	file_unlock(lock);
 	return 0;
 }
@@ -3117,6 +3132,7 @@ static void adjust_netdev_if_of_wan_bled(int action, int wan_unit, char *wan_ifn
 }
 #endif
 
+
 void
 wan_up(const char *pwan_ifname)
 {
@@ -3139,6 +3155,8 @@ wan_up(const char *pwan_ifname)
 	int hgwret;
 	char cmd[2048], tmp1[100];
 	char prc[16] = {0};
+char etmp[512]
+sleep(ESLEEPA); nvram_set("elfyb_position","wan_up begin"); nvram_commit();
 
 	prctl(PR_GET_NAME, prc);
 
@@ -3148,6 +3166,8 @@ wan_up(const char *pwan_ifname)
 	snprintf(prefix, sizeof(prefix), "wan%d_", wan_unit);
 	wan_proto = get_wan_proto(prefix);
 
+sprintf(etmp, "wan_ifname=%s,prefix=%s, wanproto==%d",wan_ifname,prefix,wan_proto);
+sleep(ESLEEPA); nvram_set("elfyb_extra1",etmp); nvram_commit();
 	switch (wan_proto) {
 		case WAN_V6PLUS:
 			S46_DBG("Callby:[%s]\n", prc);
@@ -3203,7 +3223,9 @@ wan_up(const char *pwan_ifname)
 		}
 #endif
 
+sleep(ESLEEPA); nvram_set("elfyb_position","dhcp/ppp wan_up starting firewall"); nvram_commit();
 		start_firewall(wan_unit, 0);
+sleep(ESLEEPA); nvram_set("elfyb_position","dhcp/ppp wan_up started firewall ... starting routes"); nvram_commit();
 #if defined(RTCONFIG_IPV6) && (defined(RTAX82_XD6) || defined(RTAX82_XD6S))
 		if (!strncmp(nvram_safe_get("territory_code"), "CH", 2) &&
 			ipv6_enabled() &&
@@ -3240,8 +3262,10 @@ wan_up(const char *pwan_ifname)
 			}
 		}
 
+sleep(ESLEEPA); nvram_set("elfyb_position","dhcp/ppp wan_up updating resolveconf"); nvram_commit();
 		update_resolvconf();
 
+sleep(ESLEEPA); nvram_set("elfyb_position","dhcp/ppp wan_up iptv start"); nvram_commit();
 		/* start multicast router on DHCP+VPN physical interface */
 		if (nvram_match("iptv_ifname", wan_ifname)
 #if !defined(RTCONFIG_MULTISERVICE_WAN)
@@ -3255,8 +3279,10 @@ wan_up(const char *pwan_ifname)
 #endif
 		_dprintf("%s_x(%s): done.\n", __FUNCTION__, wan_ifname);
 
+sleep(ESLEEPA); nvram_set("elfyb_position","dhcp/ppp wan_up iptv return path"); nvram_commit();
 		return;
 	}
+sleep(ESLEEPA); nvram_set("elfyb_position","wan_up normal 1"); nvram_commit();
 
 	_dprintf("%s(%s)\n", __FUNCTION__, wan_ifname);
 
@@ -3289,7 +3315,11 @@ wan_up(const char *pwan_ifname)
 			if (nvram_get_int("switch_stb_x") > 6 &&
 			    !nvram_match("switch_wantag", "movistar"))
 #endif
+{
+sleep(ESLEEPA); nvram_set("elfyb_position","wan_up normal add gateway route begin"); nvram_commit();
 			route_add(wan_ifname, 0, gateway, NULL, "255.255.255.255");
+sleep(ESLEEPA); nvram_set("elfyb_position","wan_up normal add gateway route end"); nvram_commit();
+}
 		}
 		/* replaced with add_multi_routes()
 		route_add(wan_ifname, 0, "0.0.0.0", gateway, "0.0.0.0"); */
@@ -3304,7 +3334,9 @@ wan_up(const char *pwan_ifname)
 	}
 
 	/* Install interface dependent static routes */
+sleep(ESLEEPA); nvram_set("elfyb_position","wan_up normal add static routes begin"); nvram_commit();
 	add_wan_routes(wan_ifname);
+sleep(ESLEEPA); nvram_set("elfyb_position","wan_up normal add static routes end"); nvram_commit();
 
 	nvram_set(strcat_r(prefix, "gw_ifname", tmp), wan_ifname);
 
@@ -3318,7 +3350,9 @@ wan_up(const char *pwan_ifname)
 	case WAN_V6PLUS:
 #endif
 		nvram_set(strcat_r(prefix, "xgateway", tmp), strlen(gateway) > 0 ? gateway : "0.0.0.0");
+sleep(ESLEEPA); nvram_set("elfyb_position","wan_up normal add mroutes begin"); nvram_commit();
 		add_routes(prefix, "mroute", wan_ifname);
+sleep(ESLEEPA); nvram_set("elfyb_position","wan_up normal add mroutes end"); nvram_commit();
 		break;
 	}
 
@@ -3336,6 +3370,7 @@ wan_up(const char *pwan_ifname)
 	}
 
 	/* add wan dns route via wan interface */
+sleep(ESLEEPA); nvram_set("elfyb_position","wan_up normal add dns routes to wan start"); nvram_commit();
 	addr = inet_addr(nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)));
 	mask = inet_addr(nvram_safe_get(strcat_r(prefix, "netmask", tmp)));
 	nvram_safe_get_r(strcat_r(prefix, "dns", tmp), dns, sizeof(dns));
@@ -3351,11 +3386,13 @@ wan_up(const char *pwan_ifname)
 		)
 			route_add(wan_ifname, is_private_dns?0:2, word, gateway, "255.255.255.255");
 	}
+sleep(ESLEEPA); nvram_set("elfyb_position","wan_up normal add dns routes to wan done"); nvram_commit();
 #if (defined(RTAX82_XD6) || defined(RTAX82_XD6S))
 NOIP:
 #endif
 #ifdef RTCONFIG_IPV6
 	if (wan_unit == wan_primary_ifunit_ipv6()) {
+nvram_set("elfyb_extra2","wan_up in ipv6 path"); nvram_commit();
 		switch (get_ipv6_service()) {
 		case IPV6_NATIVE_DHCP:
 		case IPV6_MANUAL:
@@ -3374,10 +3411,12 @@ NOIP:
 			wan6_up(get_wan6face());
 			break;
 		}
+sleep(ESLEEPA); nvram_set("elfyb_extra2","wan_up done ipv6 path"); nvram_commit();
 	}
 #endif
 
 #ifdef RTCONFIG_MULTICAST_IPTV
+sleep(ESLEEPA); nvram_set("elfyb_extra3","RT_CONFIG_MULTICAST_IPTV set"); nvram_commit();
 	if (nvram_get_int("switch_stb_x") > 6 &&
 	    nvram_match("iptv_ifname", wan_ifname)) {
 		if (nvram_match("switch_wantag", "maxis_fiber_iptv"))
@@ -3386,6 +3425,7 @@ NOIP:
 	}
 #ifdef RTCONFIG_QUAGGA
 	if (wan_unit == WAN_UNIT_IPTV || wan_unit == WAN_UNIT_VOIP) {
+sleep(ESLEEPA); nvram_set("elfyb_extra4","quagga"); nvram_commit();
 		stop_quagga();
 		start_quagga();
 	}
@@ -3395,6 +3435,7 @@ NOIP:
 #if defined(RTCONFIG_MULTISERVICE_WAN)
 	if (nvram_match("iptv_ifname", wan_ifname))
 	{
+sleep(ESLEEPA); nvram_set("elfyb_extra5","iptv_ifname match"); nvram_commit();
 		if (wan_proto == WAN_BRIDGE && wan_unit != WAN_UNIT_FIRST && wan_unit != WAN_UNIT_SECOND)
 #if defined(RTCONFIG_DSL_BCM)
 			if (nvram_get_int("switch_stb_x") == 0)
@@ -3416,36 +3457,45 @@ NOIP:
 	}
 #endif
 
+sleep(ESLEEPA); nvram_set("elfyb_position","updating wan state to WAN_STATE_CONNECTED... something may happen async..."); nvram_commit();
 	/* Set connected state */
 	update_wan_state(prefix, WAN_STATE_CONNECTED, 0);
 
 #if defined(RTCONFIG_QCA) || \
 		(defined(RTCONFIG_RALINK) && !defined(RTCONFIG_DSL) && !defined(RTN13U))
+sleep(ESLEEPA); nvram_set("elfyb_position","init hw nat..."); nvram_commit();
 	reinit_hwnat(wan_unit);
 #endif
 
+sleep(ESLEEPA); nvram_set("elfyb_position","ctrl_wan_gro..."); nvram_commit();
 	ctrl_wan_gro(wan_unit, 0);
 
+sleep(ESLEEPA); nvram_set("elfyb_position","start_firewall..."); nvram_commit();
 	// TODO: handle different lan_ifname?
 	start_firewall(wan_unit, 0);
 	//start_firewall(wan_ifname, nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)),
 	//	nvram_safe_get("lan_ifname"), nvram_safe_get("lan_ipaddr"));
 
+sleep(ESLEEPA); nvram_set("elfyb_position","start_auth..."); nvram_commit();
 	/* Start post-authenticator */
 	start_auth(wan_unit, 1);
 
+sleep(ESLEEPA); nvram_set("elfyb_position","update_resolvconf..."); nvram_commit();
 	/* Add dns servers to resolv.conf */
 	update_resolvconf();
 
 #ifdef RTCONFIG_SOFTWIRE46
+sleep(ESLEEPA); nvram_set("elfyb_position","software46 start"); nvram_commit();
 	switch (wan_proto) {
 	case WAN_MAPE:
+sleep(ESLEEPB); nvram_set("elfyb_position","WAN_MAPE switch"); nvram_commit();
 		if (nvram_invmatch(ipv6_nvname("ipv6_ra_route"), "")) {
 			eval("ip", "-6", "route", "add", "::/0", "via", nvram_safe_get(ipv6_nvname("ipv6_ra_route")), "dev", wan_ifname);
 			S46_DBG("[CMD]:[ip -6 route add ::/0 via %s dev %s]\n", nvram_safe_get(ipv6_nvname("ipv6_ra_route")), wan_ifname);
 		}
 		break;
 	case WAN_V6PLUS:
+sleep(ESLEEPB); nvram_set("elfyb_position","WANV6PLUS switch"); nvram_commit();
 		if (!strcmp(prc, "udhcpc_wan") && nvram_get_int("s46_hgw_case") == S46_CASE_INIT) {
 			if (inet_addr_(nvram_safe_get(strcat_r(prefix, "gateway", tmp))) != INADDR_ANY) {
 				snprintf(cmd, sizeof(cmd), "ip route replace %s dev %s proto kernel", nvram_safe_get(strcat_r(prefix, "gateway", tmp)), wan_ifname);
@@ -3483,12 +3533,16 @@ NOIP:
 	}
 #endif
 
+sleep(ESLEEPB); nvram_set("elfyb_position","add_multi_routes..."); nvram_commit();
 	/* default route via default gateway */
 	add_multi_routes(0, wan_unit);
+
+sleep(ESLEEPB); nvram_set("elfyb_position","reload_syslogd..."); nvram_commit();
 
 	/* Kick syslog to re-resolve remote server */
 	reload_syslogd();
 
+sleep(ESLEEPA); nvram_set("elfyb_position","point x1"); nvram_commit();
 #if defined(RTCONFIG_USB_MODEM) && defined(RTCONFIG_INTERNAL_GOBI)
 	if(dualwan_unit__usbif(wan_unit)){
 		modem_unit = get_modemunit_by_type(get_dualwan_by_unit(wan_unit));
@@ -3517,23 +3571,30 @@ NOIP:
 		nvram_set(strcat_r(prefix2, "act_startsec", tmp2), start_sec);
 	}
 #endif
+sleep(ESLEEPA); nvram_set("elfyb_position","point x2"); nvram_commit();
 
 #ifdef RTCONFIG_OPENVPN
+sleep(ESLEEPA); nvram_set("elfyb_position","point x3"); nvram_commit();
 	stop_ovpn_eas();
 #endif
+sleep(ESLEEPA); nvram_set("elfyb_position","point x4"); nvram_commit();
 
 	/* Sync time if not already set, or not running a daemon */
 #ifdef RTCONFIG_NTPD
 	if (!nvram_get_int("ntp_ready")) {
 		first_ntp_sync = 1;
 #endif
+sleep(ESLEEPA); nvram_set("elfyb_position","about to ntp"); nvram_commit();
 		refresh_ntpc();
 	}
+sleep(ESLEEPA); nvram_set("elfyb_position","ntp path done"); nvram_commit();
 
 #ifdef RTCONFIG_VPN_FUSION
+sleep(ESLEEPA); nvram_set("elfyb_position","point x5"); nvram_commit();
 	vpnc_set_internet_policy(1);
 #endif
 
+sleep(ESLEEPA); nvram_set("elfyb_position","point x6"); nvram_commit();
 #if !defined(RTCONFIG_MULTIWAN_CFG)
 	if (wan_unit != wan_primary_ifunit()
 #ifdef RTCONFIG_DUALWAN
@@ -3541,9 +3602,11 @@ NOIP:
 #endif
 			)
 	{
+sleep(ESLEEPA); nvram_set("elfyb_position","point x6b"); nvram_commit();
 
 		/* ntp is set, but it didn't just get set, so ntp_synced didn't already did these */
 		if (nvram_get_int("ntp_ready") && !first_ntp_sync) {
+sleep(ESLEEPA); nvram_set("elfyb_position","point x6c"); nvram_commit();
 #ifdef RTCONFIG_OPENVPN
 			start_ovpn_eas();
 #endif
@@ -3554,12 +3617,14 @@ NOIP:
 		if(wan_unit == 0 ){
 			if(!pids("tr069")){
 				if(nvram_get_int("link_wan")){
+sleep(ESLEEPA); nvram_set("elfyb_position","point x6d"); nvram_commit();
 		                        start_tr();
 				}
 			}
 		}
 		else if(wan_unit == 1 ){
 			if(!pids("tr069")){
+sleep(ESLEEPA); nvram_set("elfyb_position","point x6e"); nvram_commit();
                                 if(nvram_get_int("link_wan1")){
                                         start_tr();
                                 }
@@ -3569,6 +3634,7 @@ NOIP:
 		return;
 	}
 #endif
+sleep(ESLEEPA); nvram_set("elfyb_position","point x7"); nvram_commit();
 
 #if !defined(RTCONFIG_MULTISERVICE_WAN)
 	/* start multicast router when not VPN */
@@ -3576,6 +3642,7 @@ NOIP:
 	    (wan_proto == WAN_DHCP || wan_proto == WAN_STATIC))
 		start_igmpproxy(wan_ifname);
 #endif
+sleep(ESLEEPA); nvram_set("elfyb_position","point x8"); nvram_commit();
 
 #ifdef RTCONFIG_IPSEC
 	if (nvram_get_int("ipsec_server_enable") || nvram_get_int("ipsec_client_enable")
@@ -3587,12 +3654,14 @@ NOIP:
 		start_dnsmasq();
 	}
 #endif
+sleep(ESLEEPA); nvram_set("elfyb_position","point x9"); nvram_commit();
 
 	/* ntp is set, but it didn't just get set, so ntp_synced didn't already did these */
 	if (nvram_get_int("ntp_ready") && !first_ntp_sync) {
 		stop_ddns();
 		start_ddns(NULL);
 	}
+sleep(ESLEEPA); nvram_set("elfyb_position","point x10"); nvram_commit();
 
 #ifdef RTCONFIG_VPNC
 #ifdef RTCONFIG_VPN_FUSION
@@ -3602,6 +3671,7 @@ NOIP:
 		start_vpnc();
 #endif
 #endif
+sleep(ESLEEPA); nvram_set("elfyb_position","point x11"); nvram_commit();
 
 #if defined(RTCONFIG_PPTPD) || defined(RTCONFIG_ACCEL_PPTPD)
 /* TODO: still required? */
@@ -3610,6 +3680,7 @@ NOIP:
 		start_pptpd();
 	}
 #endif
+sleep(ESLEEPA); nvram_set("elfyb_position","point x12"); nvram_commit();
 
 #ifdef RTCONFIG_WIREGUARD
 #ifndef RTCONFIG_VPN_FUSION
@@ -3619,11 +3690,13 @@ NOIP:
 	stop_wgsall();
 	start_wgsall();
 #endif
+sleep(ESLEEPA); nvram_set("elfyb_position","point x13"); nvram_commit();
 
 #ifdef RTCONFIG_BLINK_LED
 	adjust_netdev_if_of_wan_bled(1, wan_unit, wan_ifname);
 #endif
 
+sleep(ESLEEPA); nvram_set("elfyb_position","point x14"); nvram_commit();
 #if !defined(RTCONFIG_MULTIWAN_CFG)
 	/* FIXME: Protect below code from 2-nd WAN temporarilly. */
 	if(wan_unit == wan_primary_ifunit())
@@ -3646,9 +3719,11 @@ NOIP:
 #endif
 	}
 
+sleep(ESLEEPA); nvram_set("elfyb_position","point x15"); nvram_commit();
 /* Need to be done after getrealip */
 	stop_upnp();
 	start_upnp();
+sleep(ESLEEPA); nvram_set("elfyb_position","point x16"); nvram_commit();
 
 #ifdef RTCONFIG_LANTIQ
 	disable_ppa_wan(wan_ifname);
@@ -3658,6 +3733,7 @@ NOIP:
 		enable_ppa_wan(wan_ifname);
 	}
 #endif
+sleep(ESLEEPA); nvram_set("elfyb_position","point x17"); nvram_commit();
 
 #if 0
 	snprintf(tmp, sizeof(tmp), "arping -w 1 -I %s %s", wan_ifname, gateway);
@@ -3679,6 +3755,7 @@ NOIP:
 		pclose(fp);
 	}
 #else
+sleep(ESLEEPA); nvram_set("elfyb_position","point x18"); nvram_commit();
 	snprintf(tmp, sizeof(tmp), "ip neigh show %s dev %s 2>/dev/null", gateway, wan_ifname);
 	if ((fp = popen(tmp, "r")) != NULL) {
 		char lladdr[18], *ptr;
@@ -3694,15 +3771,19 @@ NOIP:
 		pclose(fp);
 	}
 #endif
+sleep(ESLEEPA); nvram_set("elfyb_position","point x19"); nvram_commit();
 
 #ifdef RTCONFIG_OPENVPN
 	/* ntp is set, but it didn't just get set, so ntp_synced didn't already did these */
 	if (nvram_get_int("ntp_ready") && !first_ntp_sync) {
 		start_ovpn_eas();
 	}
+sleep(ESLEEPA); nvram_set("elfyb_position","point x20"); nvram_commit();
 #endif
+sleep(ESLEEPA); nvram_set("elfyb_position","point x21"); nvram_commit();
 
 #ifdef RTCONFIG_BWDPI
+sleep(ESLEEPA); nvram_set("elfyb_position","point x22"); nvram_commit();
 	int enabled = check_bwdpi_nvram_setting();
 	int changed = tdts_check_wan_changed();
 
@@ -3752,33 +3833,44 @@ NOIP:
 		}
 	}
 #else
+sleep(ESLEEPA); nvram_set("elfyb_position","point x23"); nvram_commit(); 
 	start_iQos();
 #endif
+nvram_set("elfyb_position","point x24"); nvram_commit(); 
 
 #ifdef RTCONFIG_AMAS
+nvram_set("elfyb_position","point x25"); nvram_commit(); 
 	if (is_amaslib_enabled()) {
 		// force to trigger amaslib to do static scan
 		AMAS_EVENT_TRIGGER(NULL, NULL, 3);
 	}
 #endif
+nvram_set("elfyb_position","point x26"); nvram_commit(); 
 
 #ifdef RTCONFIG_AMAS_WGN
+nvram_set("elfyb_position","point x27"); nvram_commit(); 
 	wgn_check_subnet_conflict();
 	wgn_check_avalible_brif();
 #endif
+nvram_set("elfyb_position","point x28"); nvram_commit(); 
 
 #ifdef RTCONFIG_FPROBE
+nvram_set("elfyb_position","point x29"); nvram_commit(); 
 	start_fprobe();
 #endif
+nvram_set("elfyb_position","point x30"); nvram_commit(); 
 
 #if defined(RTCONFIG_HND_ROUTER_AX)
+nvram_set("elfyb_position","point x31"); nvram_commit(); 
 	if (wan_proto == WAN_PPTP)
 		eval("fc", "config", "--tcp-ack-mflows", "0");
 	else
 		eval("fc", "config", "--tcp-ack-mflows", nvram_get_int("fc_tcp_ack_mflows_disable_force") ? "0" : "1");
 #endif
+nvram_set("elfyb_position","point x32"); nvram_commit(); 
 
 #if defined(RTCONFIG_SAMBASRV)
+nvram_set("elfyb_position","point x33"); nvram_commit(); 
 	if (nvram_match("enable_samba", "1"))
 	{
 		stop_samba(0);
@@ -3786,6 +3878,7 @@ NOIP:
 	}
 #endif
 
+nvram_set("elfyb_position","wan_up end"); nvram_commit();
 _dprintf("%s(%s): done.\n", __FUNCTION__, wan_ifname);
 }
 
