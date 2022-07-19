@@ -443,8 +443,9 @@ void add_usb_modem_modules(void)
 	modprobe("rndis_host");
 	modprobe("cdc_ncm");
 	modprobe("cdc_wdm");
-	if(nvram_get_int("usb_qmi"))
-		modprobe("qmi_wwan");
+	//if(nvram_get_int("usb_qmi"))
+	//	modprobe("qmi_wwan");
+	modprobe("qmi_wwan");
 	modprobe("cdc_mbim");
 #endif
 }
@@ -474,6 +475,7 @@ void remove_usb_modem_modules(void)
 #if LINUX_KERNEL_VERSION >= KERNEL_VERSION(2,6,36)
 	modprobe_r("usb_wwan");
 #endif
+	modprobe_r("qcserial");
 	modprobe_r("usbserial");
 #endif
 	modprobe_r("cdc-acm");

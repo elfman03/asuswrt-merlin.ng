@@ -4030,6 +4030,7 @@ int asus_tty(const char *device_name, const char *action)
 				retry = 0;
 				while(hadSerialModule() && retry < 3){
 					usb_dbg("(%s): Remove the serial module.\n", device_name);
+					modprobe_r("qcserial");
 					modprobe_r("usbserial");
 					++retry;
 				}
@@ -4562,6 +4563,7 @@ int asus_usb_interface(const char *device_name, const char *action)
 #if LINUX_KERNEL_VERSION >= KERNEL_VERSION(2,6,36)
 				modprobe_r("usb_wwan");
 #endif
+				modprobe_r("qcserial");
 				modprobe_r("usbserial");
 
 #ifdef RTCONFIG_USB_BECEEM
@@ -4865,6 +4867,7 @@ int asus_usb_interface(const char *device_name, const char *action)
 	else if(isSerialInterface(device_name, 1, vid, pid)){
 		usb_dbg("(%s): Runing USB serial with (0x%04x/0x%04x)...\n", device_name, vid, pid);
 		modprobe("usbserial");
+		modprobe("qcserial");
 #if LINUX_KERNEL_VERSION >= KERNEL_VERSION(2,6,36)
 		modprobe("usb_wwan");
 #endif
