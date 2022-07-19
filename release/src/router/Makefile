@@ -1134,13 +1134,13 @@ endif
 ifeq ($(RTCONFIG_USB_MULTIMODEM),y)
 obj-$(RTCONFIG_USB_MODEM) += sdparm-1.02
 obj-$(RTCONFIG_USB_MODEM) += comgt-0.32
-obj-$(RTCONFIG_USB_MODEM) += json-c libubox uqmi
+obj-$(RTCONFIG_USB_MODEM) += json-c libubox uqmi umbim
 obj-$(RTCONFIG_USB_MODEM) += usbmode
 else
 ifneq ($(RTCONFIG_INTERNAL_GOBI),y)
 obj-$(RTCONFIG_USB_MODEM) += sdparm-1.02
 obj-$(RTCONFIG_USB_MODEM) += comgt-0.32
-obj-$(RTCONFIG_USB_MODEM) += json-c libubox uqmi
+obj-$(RTCONFIG_USB_MODEM) += json-c libubox uqmi umbim
 obj-$(RTCONFIG_USB_MODEM) += usbmode
 endif
 endif
@@ -7267,6 +7267,10 @@ wget: openssl zlib wget/Makefile
 wget-clean:
 	[ ! -f wget/Makefile ] || $(MAKE) -C wget distclean
 	@rm -f wget/Makefile
+
+umbim-install:
+	install -D umbim/umbim $(INSTALLDIR)/umbim/usr/sbin/umbim
+	$(STRIP) $(INSTALLDIR)/umbim/usr/sbin/umbim
 
 wget-install:
 	install -D wget/src/wget $(INSTALLDIR)/wget/usr/sbin/wget
