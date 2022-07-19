@@ -154,6 +154,9 @@ int main(int argc, char **argv)
 	ret = uqmi_run_commands(&dev) ? 0 : -1;
 
 	qmi_device_close(&dev);
+	// ELFY was getting some weird errors with device hanging up.  think when executing too fast/too soon
+	fprintf(stderr, "...\n");
+	sleep(3);
 
 	return ret;
 }
