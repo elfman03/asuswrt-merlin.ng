@@ -2759,7 +2759,7 @@
 								alcatel-oune-touch-x220s(27), anydata-adu-510a(28), anydata-adu-500a(29), 
 								onda-mt833up(30), onda-mw833up(31), mts-ac2746(32), zte-ac5710(33), zte-mu351(34),
 								zte-mf100(35), zte-mf636(36), zte-mf622(37), zte-mf626(38), zte-mf632(39), 
-								zte-mf112(40), zte-mfk3570-z(41), cs15(42), cs17(43), icon401(44) }
+								zte-mf112(40), zte-mfk3570-z(41), cs15(42), cs17(43), icon401(44), sierra-em7455(45) }
 				MAX-ACCESS read-write
 				STATUS current
 				DESCRIPTION ""

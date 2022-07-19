@@ -267,6 +267,7 @@ function show_3G_modem_list(){
 			, "CS15"
 			, "CS17"
 			, "ICON401"
+			, "Sierra-EM7455"
 			);
 
 	free_options(document.getElementById("shown_modems"));

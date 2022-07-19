@@ -243,6 +243,7 @@ enum DONGLE_LIST_T {
 	SN_Vodafone_R226			,
 	SN_Huawei_GP02				,
 	SN_LG_L_03F				,
+	SN_SIERRA_EM7455			,
 	SN_END
 };
 
