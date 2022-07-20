@@ -1619,6 +1619,9 @@ int write_3g_conf(FILE *fp, int dno, int aut, const unsigned int vid, const unsi
 		case SN_SIERRA_EM7455:
 			fprintf(fp, "DefaultVendor=0x%04x\n",	0x1199);
 			fprintf(fp, "DefaultProduct=0x%04x\n",	0x9071);
+			nvram_set("ctf_disable", "1");                    // RAW mode seems to kernel panic when used with ctf
+			nvram_set("ctf_disable_modem", "1");              // Link up with existing disable reason
+			nvram_commit();
 			break;
 		case SN_Teracom_LW272:
 			fprintf(fp, "DefaultVendor=0x%04x\n",	0x230d);
@@ -2363,6 +2366,8 @@ usb_dbg("3G: manaul setting.\n");
 			write_3g_conf(fp, SN_Celot_CT680, 0, vid, pid);
 		} else if (strcmp(dongle_name, "Celot_CT-K300") == 0){              // 0703 add 
 			write_3g_conf(fp, SN_Celot_K300, 0, vid, pid);
+		} else if (strcmp(dongle_name, "Sierra-EM7455") == 0 && vid == 0x1199 && pid == 0x9071) {
+			write_3g_conf(fp, SN_SIERRA_EM7455, 0, vid, pid);
 		} else if (strncmp(dongle_name, "Huawei-", 7) == 0 && vid == 0x12d1){
 			write_3g_conf(fp, UNKNOWNDEV, 0, vid, pid);
 		} else{
