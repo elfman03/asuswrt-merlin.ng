@@ -238,14 +238,14 @@ void usbnet_skb_return_26 (struct usbnet *dev, struct sk_buff *skb)
 
 	netif_dbg(dev, rx_status, dev->net, "< rx, len %zu, type 0x%x\n",
 		  skb->len + sizeof (struct ethhdr), skb->protocol);
-	printk(KERN_INFO KBUILD_MODNAME "< rx, len %u, type 0x%x\n",
-		  skb->len + sizeof (struct ethhdr), skb->protocol);
+	//printk(KERN_INFO KBUILD_MODNAME "< rx, len %u, type 0x%x\n",
+	//	  skb->len + sizeof (struct ethhdr), skb->protocol);
 	memset (skb->cb, 0, sizeof (struct skb_data));
 	status = netif_rx (skb);
 	if (status != NET_RX_SUCCESS) {
 		netif_dbg(dev, rx_err, dev->net,
 			  "netif_rx status %d\n", status);
-	        printk(KERN_INFO KBUILD_MODNAME "netif_rx status %d\n", status);
+	        //printk(KERN_INFO KBUILD_MODNAME "netif_rx status %d\n", status);
 	}
 }
 /* From 2.14.215 kernel */
@@ -274,8 +274,8 @@ void usbnet_skb_return (struct usbnet *dev, struct sk_buff *skb)
 
 	netif_dbg(dev, rx_status, dev->net, "< rx, len %zu, type 0x%x\n",
 		  skb->len + sizeof (struct ethhdr), skb->protocol);
-	printk(KERN_INFO KBUILD_MODNAME "< rx, len %u, type 0x%x\n",
-		  skb->len + sizeof (struct ethhdr), skb->protocol);
+	//printk(KERN_INFO KBUILD_MODNAME "< rx, len %u, type 0x%x\n",
+	//	  skb->len + sizeof (struct ethhdr), skb->protocol);
 	memset (skb->cb, 0, sizeof (struct skb_data));
 
 	if (skb_defer_rx_timestamp(skb))
@@ -285,7 +285,7 @@ void usbnet_skb_return (struct usbnet *dev, struct sk_buff *skb)
 	if (status != NET_RX_SUCCESS) {
 		netif_dbg(dev, rx_err, dev->net,
 			  "netif_rx status %d\n", status);
-	        printk(KERN_INFO KBUILD_MODNAME "netif_rx status %d\n", status);
+	        //printk(KERN_INFO KBUILD_MODNAME "netif_rx status %d\n", status);
         }
 }
 EXPORT_SYMBOL_GPL(usbnet_skb_return);
