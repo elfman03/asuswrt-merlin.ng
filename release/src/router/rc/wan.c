@@ -1455,11 +1455,14 @@ TRACE_PT("3g begin with %s.\n", wan_ifname);
 			}
 
 #define MAX_TRY_IFUP 3
-			isEm7455=0;
+			isEm7455=0;    // Am I an EM7455 in QMI mode?
 			if(!strcmp(modem_type, "qmi")) {
+				/*
+				 * Detect if modem type is QMI (detected by find device node script script) already
+				 * Detect if Sierra EM7455 modem is selected in modem pulldown list
+				 */
 				char *dev3g=nvram_get("Dev3G"); 
 				if(dev3g && !strcmp(dev3g,"Sierra-EM7455")) { isEm7455=1; }
-				f_write_string("/tmp/elfyA", "ELFY detect EM7455\n", 0, 0);
 			}
 
 			for (i = 0; i < MAX_TRY_IFUP; i++) {
@@ -1470,16 +1473,22 @@ TRACE_PT("3g begin with %s.\n", wan_ifname);
 				}
 
 				if(isEm7455) {
-					flags=flags | IFF_NOARP;
-					if(i==0) {
+					/*
+					 * we really should not have ARP for these.  
+					 * other IFUPs seem to override this though... :-(
+					 */
+					flags=flags | IFF_NOARP;    
+					/*
+					 * First time thru set the rap_ip mode for the driver
+					 */
+					if(i==0) {  
 						char fn[64];
-						_ifconfig(wan_ifname, 0, NULL, NULL, NULL, 0);
+						_ifconfig(wan_ifname, 0, NULL, NULL, NULL, 0);       // if needed bring down briefly
 						sleep(3);
 						sprintf(fn, "/sys/class/net/%s/qmi/raw_ip", wan_ifname);
 						f_write_string(fn, "Y", 0, 0);
 						sleep(1);
-						_ifconfig(wan_ifname, flags, NULL, NULL, NULL, mtu);
-						f_write_string("/tmp/elfyB", "ELFY set raw ip and noarp flag\n", 0, 0);
+						_ifconfig(wan_ifname, flags, NULL, NULL, NULL, mtu);  // interface back in state it was (maybe with noarp too)
 					}
 				}
 #ifdef SET_USB_MODEM_MTU_ETH
