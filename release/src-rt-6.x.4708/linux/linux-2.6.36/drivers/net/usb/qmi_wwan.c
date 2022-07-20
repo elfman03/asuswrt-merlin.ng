@@ -238,11 +238,11 @@ static int qmi_wwan_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
 	bool rawip = info->flags & QMI_WWAN_FLAG_RAWIP;
 	__be16 proto;
 
-	if(rawip) {
-    	  printk(KERN_INFO KBUILD_MODNAME "RX Fixup called - RAWIP");
-	} else {
-    	  printk(KERN_INFO KBUILD_MODNAME "RX Fixup called - ethernet");
-	}
+	//if(rawip) {
+    	//  printk(KERN_INFO KBUILD_MODNAME "RX Fixup called - RAWIP");
+	//} else {
+    	//  printk(KERN_INFO KBUILD_MODNAME "RX Fixup called - ethernet");
+	//}
 
 	/* This check is no longer done by usbnet */
 	if (skb->len < dev->net->hard_header_len)
@@ -269,7 +269,7 @@ static int qmi_wwan_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
 		/* pass along other packets without modifications */
 		return 1;
 	}
-    	printk(KERN_INFO KBUILD_MODNAME "fixup after switch block");
+    	//printk(KERN_INFO KBUILD_MODNAME "fixup after switch block");
 	if (rawip) {
 		skb_reset_mac_header(skb);
 		skb->dev = dev->net; /* normally set by eth_type_trans */
@@ -277,7 +277,7 @@ static int qmi_wwan_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
 		return 1;
 	}
 
-    	printk(KERN_INFO KBUILD_MODNAME "should not be here 1");
+    	//printk(KERN_INFO KBUILD_MODNAME "should not be here 1");
 	if (skb_headroom(skb) < ETH_HLEN)
 		return 0;
 	skb_push(skb, ETH_HLEN);
@@ -288,7 +288,7 @@ static int qmi_wwan_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
 	memset(eth_hdr(skb)->h_source, 0x00, ETH_ALEN);  // ELFY put this
 
 fix_dest:
-    	printk(KERN_INFO KBUILD_MODNAME "should not be here 2");
+    	//printk(KERN_INFO KBUILD_MODNAME "should not be here 2");
 	memcpy(eth_hdr(skb)->h_dest, dev->net->dev_addr, ETH_ALEN);
 	return 1;
 }
