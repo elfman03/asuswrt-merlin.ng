@@ -1201,6 +1201,7 @@ start_wan_if(int unit)
 #if defined(BCM4912)
 	uint phy_pwr_skip = 0;
 #endif
+	int isEm7455;
 
 #ifdef RTCONFIG_HND_ROUTER_AX
 #ifdef RTCONFIG_BONDING_WAN
@@ -1454,6 +1455,13 @@ TRACE_PT("3g begin with %s.\n", wan_ifname);
 			}
 
 #define MAX_TRY_IFUP 3
+			isEm7455=0;
+			if(!strcmp(modem_type, "qmi")) {
+				char *dev3g=nvram_get("Dev3G"); 
+				if(dev3g && !strcmp(dev3g,"Sierra-EM7455")) { isEm7455=1; }
+				f_write_string("/tmp/elfyA", "ELFY detect EM7455\n", 0, 0);
+			}
+
 			for (i = 0; i < MAX_TRY_IFUP; i++) {
 				if (_ifconfig_get(wan_ifname, &flags, NULL, NULL, NULL, &mtu) != 0) {
 					TRACE_PT("Couldn't read the flags of %s!\n", wan_ifname);
@@ -1461,6 +1469,19 @@ TRACE_PT("3g begin with %s.\n", wan_ifname);
 					return;
 				}
 
+				if(isEm7455) {
+					flags=flags | IFF_NOARP;
+					if(i==0) {
+						char fn[64];
+						_ifconfig(wan_ifname, 0, NULL, NULL, NULL, 0);
+						sleep(3);
+						sprintf(fn, "/sys/class/net/%s/qmi/raw_ip", wan_ifname);
+						f_write_string(fn, "Y", 0, 0);
+						sleep(1);
+						_ifconfig(wan_ifname, flags, NULL, NULL, NULL, mtu);
+						f_write_string("/tmp/elfyB", "ELFY set raw ip and noarp flag\n", 0, 0);
+					}
+				}
 #ifdef SET_USB_MODEM_MTU_ETH
 				modem_mtu = nvram_get_int("modem_mtu");
 				mtu = (modem_mtu >= 576 && modem_mtu < mtu) ? modem_mtu : 0;
