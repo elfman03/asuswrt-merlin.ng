@@ -1619,18 +1619,20 @@ int write_3g_conf(FILE *fp, int dno, int aut, const unsigned int vid, const unsi
 		case SN_SIERRA_EM7455:
 			fprintf(fp, "DefaultVendor=0x%04x\n",	0x1199);
 			fprintf(fp, "DefaultProduct=0x%04x\n",	0x9071);
-		        //if((nvram_get_int("ctf_disable_modem")!=1) || (nvram_get_int("ctf_disable_force")!=1)) 
 		        if(nvram_get_int("ctf_disable_modem")!=1)
 			{
 			  // 
-			  // NOTE THIS REALLY SHOULD NOT BE HERE...  SHOULD BE SOMEWHERE TO TURN BACK OFF IF A DIFFERENT MODEM/MODE IS CHOSEN
+			  // patterned after ctf_disable_modem path below which is commented out
+			  // NOTE:  this codepath around ctf and nvram is sensitive and can cause 
+			  //        issues that require recovery reload of firmware. :-(
+			  //
+			  // NOTE THIS REALLY SHOULD NOT BE HERE...  
+			  // SHOULD BE SOMEWHERE TO TURN BACK OFF IF A DIFFERENT MODEM/MODE IS CHOSEN
 			  // FOR NOW LEAVE HERE THOUGH
 			  //
 			  nvram_set("ctf_disable_modem", "1");
-			  //nvram_set("ctf_disable_force", "1");
 			  nvram_commit();
 			  notify_rc("reboot");
-			  //notify_rc_and_wait("reboot");
 			}
 			break;
 		case SN_Teracom_LW272:
