@@ -296,7 +296,7 @@ static int ehci_reset (struct ehci_hcd *ehci)
 }
 
 /* idle the controller (from running) */
-static void ehci_quiesce (struct ehci_hcd *ehci)
+static void ehci_quiesce_26 (struct ehci_hcd *ehci)
 {
 	u32	temp;
 
@@ -320,6 +320,33 @@ static void ehci_quiesce (struct ehci_hcd *ehci)
 	/* hardware can take 16 microframes to turn off ... */
 	handshake_on_error_set_halt(ehci, &ehci->regs->status,
 				    STS_ASS | STS_PSS, 0, 16 * 125);
+}
+
+/*
+ * Idle the controller (turn off the schedules).
+ * Must be called with interrupts enabled and the lock not held.
+ */
+static void ehci_quiesce (struct ehci_hcd *ehci)
+{
+	u32	temp;
+
+	//if (ehci->rh_state != EHCI_RH_RUNNING)
+	//	return;
+
+	/* wait for any schedule enables/disables to take effect */
+	temp = (ehci->command << 10) & (STS_ASS | STS_PSS);
+	handshake(ehci, &ehci->regs->status, STS_ASS | STS_PSS, temp,
+			16 * 125);
+
+	/* then disable anything that's still active */
+	spin_lock_irq(&ehci->lock);
+	ehci->command &= ~(CMD_ASE | CMD_PSE);
+	ehci_writel(ehci, ehci->command, &ehci->regs->command);
+	spin_unlock_irq(&ehci->lock);
+
+	/* hardware can take 16 microframes to turn off ... */
+	handshake(ehci, &ehci->regs->status, STS_ASS | STS_PSS, 0,
+			16 * 125);
 }
 
 /*-------------------------------------------------------------------------*/
@@ -508,7 +535,7 @@ static void ehci_stop (struct usb_hcd *hcd)
 	del_timer_sync (&ehci->watchdog);
 	del_timer_sync(&ehci->iaa_watchdog);
 
-	spin_lock_irq(&ehci->lock);
+	//spin_lock_irq(&ehci->lock);
 	if (HC_IS_RUNNING (hcd->state))
 		ehci_quiesce (ehci);
 
