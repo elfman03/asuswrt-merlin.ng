@@ -17424,6 +17424,7 @@ fa_mode_adjust()
 #endif
 	) {
 		if (!nvram_match("ctf_disable_force", "1")
+		        && !nvram_match("ctf_disable_modem", "1")
 			&& nvram_get_int("ctf_fa_cap")
 #if !defined(HND_ROUTER)
 			&& !nvram_get_int("cstats_enable")
@@ -17540,7 +17541,7 @@ chk_etfa()	/* after insmod et */
 	if (FA_ON(fa_mode)) {
 		if (
 			!nvram_get_int("ctf_fa_cap") ||
-			nvram_match("ctf_disable", "1") || nvram_match("ctf_disable_force", "1")) { // in case UI chaos
+			nvram_match("ctf_disable", "1") || nvram_match("ctf_disable_modem", "1") || nvram_match("ctf_disable_force", "1")) { // in case UI chaos
 			_dprintf("\nChip Not Support FA Mode or ctf disabled!\n");
 
 			nvram_unset("ctf_fa_mode");

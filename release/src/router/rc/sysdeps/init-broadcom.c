@@ -2992,7 +2992,9 @@ void init_switch()
 #endif
 	)
 #endif
-	|| nvram_get_int("ctf_disable_force")
+        || nvram_match("ctf_disable_modem", "1") 
+        || nvram_match("ctf_disable_force", "1") 
+	//|| nvram_get_int("ctf_disable_force")
 #ifndef RTCONFIG_BCMARM
 	|| sw_mode() == SW_MODE_REPEATER
 #endif

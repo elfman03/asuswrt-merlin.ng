@@ -1619,9 +1619,19 @@ int write_3g_conf(FILE *fp, int dno, int aut, const unsigned int vid, const unsi
 		case SN_SIERRA_EM7455:
 			fprintf(fp, "DefaultVendor=0x%04x\n",	0x1199);
 			fprintf(fp, "DefaultProduct=0x%04x\n",	0x9071);
-			nvram_set("ctf_disable", "1");                    // RAW mode seems to kernel panic when used with ctf
-			nvram_set("ctf_disable_modem", "1");              // Link up with existing disable reason
-			nvram_commit();
+		        //if((nvram_get_int("ctf_disable_modem")!=1) || (nvram_get_int("ctf_disable_force")!=1)) 
+		        if(nvram_get_int("ctf_disable_modem")!=1)
+			{
+			  // 
+			  // NOTE THIS REALLY SHOULD NOT BE HERE...  SHOULD BE SOMEWHERE TO TURN BACK OFF IF A DIFFERENT MODEM/MODE IS CHOSEN
+			  // FOR NOW LEAVE HERE THOUGH
+			  //
+			  nvram_set("ctf_disable_modem", "1");
+			  //nvram_set("ctf_disable_force", "1");
+			  nvram_commit();
+			  notify_rc("reboot");
+			  //notify_rc_and_wait("reboot");
+			}
 			break;
 		case SN_Teracom_LW272:
 			fprintf(fp, "DefaultVendor=0x%04x\n",	0x230d);
