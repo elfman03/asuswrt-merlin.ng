@@ -215,6 +215,7 @@ static int ehci_halt (struct ehci_hcd *ehci)
 			  STS_HALT, STS_HALT, 16 * 125);
 }
 
+#if 0
 static int handshake_on_error_set_halt(struct ehci_hcd *ehci, void __iomem *ptr,
 				       u32 mask, u32 done, int usec)
 {
@@ -230,6 +231,7 @@ static int handshake_on_error_set_halt(struct ehci_hcd *ehci, void __iomem *ptr,
 
 	return error;
 }
+#endif
 
 /* put TDI/ARC silicon into EHCI mode */
 static void tdi_reset (struct ehci_hcd *ehci)
@@ -295,6 +297,7 @@ static int ehci_reset (struct ehci_hcd *ehci)
 	return retval;
 }
 
+#if 0
 /* idle the controller (from running) */
 static void ehci_quiesce_26 (struct ehci_hcd *ehci)
 {
@@ -321,6 +324,7 @@ static void ehci_quiesce_26 (struct ehci_hcd *ehci)
 	handshake_on_error_set_halt(ehci, &ehci->regs->status,
 				    STS_ASS | STS_PSS, 0, 16 * 125);
 }
+#endif
 
 /*
  * Idle the controller (turn off the schedules).
@@ -532,16 +536,16 @@ static void ehci_stop (struct usb_hcd *hcd)
 	ehci_dbg (ehci, "stop\n");
 
 	/* no more interrupts ... */
+	spin_lock_irq (&ehci->lock);
 	del_timer_sync (&ehci->watchdog);
 	del_timer_sync(&ehci->iaa_watchdog);
+	spin_unlock_irq (&ehci->lock);
 
-	//spin_lock_irq(&ehci->lock);
 	if (HC_IS_RUNNING (hcd->state))
 		ehci_quiesce (ehci);
 
 	ehci_silence_controller(ehci);
 	ehci_reset (ehci);
-	spin_unlock_irq(&ehci->lock);
 
 	remove_companion_file(ehci);
 	remove_debug_files (ehci);

@@ -461,8 +461,9 @@ static int enable_periodic (struct ehci_hcd *ehci)
 	/* did clearing PSE did take effect yet?
 	 * takes effect only at frame boundaries...
 	 */
-	status = handshake_on_error_set_halt(ehci, &ehci->regs->status,
-					     STS_PSS, 0, 9 * 125);
+	status = handshake(ehci, &ehci->regs->status, STS_PSS, 0, 9 * 125);
+	//status = handshake_on_error_set_halt(ehci, &ehci->regs->status,
+	//				     STS_PSS, 0, 9 * 125);
 	if (status)
 		return status;
 
@@ -500,8 +501,9 @@ static int disable_periodic (struct ehci_hcd *ehci)
 	/* did setting PSE not take effect yet?
 	 * takes effect only at frame boundaries...
 	 */
-	status = handshake_on_error_set_halt(ehci, &ehci->regs->status,
-					     STS_PSS, STS_PSS, 9 * 125);
+	status = handshake(ehci, &ehci->regs->status,STS_PSS, STS_PSS, 9 * 125);
+	//status = handshake_on_error_set_halt(ehci, &ehci->regs->status,
+	//				     STS_PSS, STS_PSS, 9 * 125);
 	if (status)
 		return status;
 
