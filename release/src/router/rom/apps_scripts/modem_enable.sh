@@ -9,6 +9,8 @@ else
 	prefix="usb_modem${unit}_"
 fi
 
+UQMI=/usr/sbin/modem_uqmi.sh
+
 pdp_old=0
 
 modem_enable=`nvram get modem_enable`
@@ -566,23 +568,23 @@ if [ "$modem_type" == "tty" -o "$modem_type" == "qmi" -o "$modem_type" == "mbim"
 				3) flag_auth="both" ;;
 				*) flag_auth="none" ;;
 			esac
-			echo "uqmi -d $wdm --keep-client-id wds --start-network --apn \"$modem_apn\" --ip-family $pdp_str" \
+			echo "$UQMI -d $wdm --keep-client-id wds --start-network --apn \"$modem_apn\" --ip-family $pdp_str" \
 				${flag_auth:+--auth-type \"$flag_auth\"} \
 				${modem_user:+--username \"$modem_user\"} \
 				${modem_pass:+--password \"$modem_pass\"}
-			uqmi -d $wdm --keep-client-id wds --start-network --apn "$modem_apn" --ip-family $pdp_str \
+			$UQMI -d $wdm --keep-client-id wds --start-network --apn "$modem_apn" --ip-family $pdp_str \
 				${flag_auth:+--auth-type "$flag_auth"} \
 				${modem_user:+--username "$modem_user"} \
 				${modem_pass:+--password "$modem_pass"}
 		else
-			echo "uqmi -d $wdm --keep-client-id wds --start-network --apn \"$modem_apn\" --ip-family $pdp_str"
-			uqmi -d $wdm --keep-client-id wds --start-network --apn "$modem_apn" --ip-family $pdp_str
+			echo "$UQMI -d $wdm --keep-client-id wds --start-network --apn \"$modem_apn\" --ip-family $pdp_str"
+			$UQMI -d $wdm --keep-client-id wds --start-network --apn "$modem_apn" --ip-family $pdp_str
 		fi
 		if [ "$?" != "0" ]; then
 			echo "QMI($wdm): faile to start the network..."
 		fi
 
-		uqmi -d $wdm --keep-client-id wds --set-autoconnect enabled
+		$UQMI -d $wdm --keep-client-id wds --set-autoconnect enabled
 		if [ "$?" != "0" ]; then
 			echo "QMI($wdm): faile to enable autoconnect..."
 		fi
