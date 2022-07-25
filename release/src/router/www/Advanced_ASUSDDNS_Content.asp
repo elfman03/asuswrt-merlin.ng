@@ -75,6 +75,7 @@ var ddns_return_code_chk = '<% nvram_get("ddns_return_code_chk"); %>';
 var ddns_old_name = '<% nvram_get("ddns_hostname_old"); %>';
 var ddns_server_x = '<% nvram_get("ddns_server_x"); %>';
 var ddns_enable_x = '<% nvram_get("ddns_enable_x"); %>';
+var ddns_hide_x = '<% nvram_get("ddns_hide_x"); %>';
 var http_enable = '<% nvram_get("http_enable"); %>';
 
 var httpd_cert_info = [<% httpd_cert_info(); %>][0];
@@ -928,6 +929,13 @@ function check_unregister_result(){
 	                                <td colspan="2">DDNS Service</td>
 	                        </tr>
 	                        </thead>
+			<tr>
+				<th>Hide DDNS link in Network Map</th>
+				<td>
+				<input type="radio" value="1" name="ddns_hide_x" onClick="return change_common_radio(this, 'LANHostConfig', 'ddns_hide_x', '1')" <% nvram_match("ddns_hide_x", "1", "checked"); %>><#checkbox_Yes#>
+				<input type="radio" value="0" name="ddns_hide_x" onClick="return change_common_radio(this, 'LANHostConfig', 'ddns_hide_x', '0')" <% nvram_match("ddns_hide_x", "0", "checked"); %>><#checkbox_No#>
+				</td>
+			</tr>
 			<tr>
 				<th><#LANHostConfig_x_DDNSEnable_itemname#></th>
 				<td>

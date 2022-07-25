@@ -3159,7 +3159,11 @@ function refreshStatus(xhr){
 						else if(active_wan_unit == "1")
 							document.getElementById("index_status").innerHTML = '<span style="word-break:break-all;">' + wan1_ipaddr + '</span>';
 					}
-					document.getElementById("ddnsHostName_div").style.display = NM_connect_status.hasInternet ? "" : "none";
+			                var ddns_hide = '<%nvram_get("ddns_hide_x");%>';
+					if ( ddns_hide == '1' )
+					  document.getElementById("ddnsHostName_div").style.display = "none";
+					else
+					  document.getElementById("ddnsHostName_div").style.display = NM_connect_status.hasInternet ? "" : "none";
 				}
 				document.getElementById("connect_status").className = NM_connect_status.hasInternet ? "connectstatuson" : "connectstatusoff";
 				wanConnectStatus = NM_connect_status.hasInternet;

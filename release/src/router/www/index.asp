@@ -362,6 +362,7 @@ function initial(){
 
 	if(sw_mode != "1"){
 		document.getElementById("wanIP_div").style.display = "none";
+		document.getElementById("speetetst_div").style.display = "none";
 		document.getElementById("ddnsHostName_div").style.display = "none";
 		document.getElementById("NM_connect_title").style.fontSize = "14px";
 		document.getElementById("NM_connect_status").style.fontSize = "20px";
@@ -388,12 +389,12 @@ function initial(){
 		document.getElementById('NM_connect_title').innerHTML = "<#parent_AP_status#> :";
 	}
 	else{
-		document.getElementById("index_status").innerHTML = '<span style="word-break:break-all;">' + wanlink_ipaddr + '</span>'
+		document.getElementById("index_status").innerHTML = '<span style="word-break:break-all;">' + wanlink_ipaddr + '</span>';
+		setTimeout("show_speedtest();", 1);
 		setTimeout("show_ddns_status();", 1);
 		
 		if(wanlink_ipaddr == '0.0.0.0' || wanlink_ipaddr == '')
 			document.getElementById("wanIP_div").style.display = "none";
-
 		if(wan_bonding_support && orig_bond_wan == "1"){
 			document.getElementById("wanAggr_div").style.display = "block";
 			document.getElementById('single_wan_line').style.display = "none";
@@ -516,13 +517,26 @@ function show_smart_connect_status(){
 	setTimeout("show_smart_connect_status();", 2000);
 }
 
+function show_speedtest(){
+	if(wanlink_ipaddr == '0.0.0.0' || wanlink_ipaddr == '') {
+		document.getElementById("speedtest_div").style.display = "none";
+	} else {
+		document.getElementById("speedtest_div").style.display = "";
+	}
+}
+
 function show_ddns_status(){
+	var ddns_hide = '<% nvram_get("ddns_hide_x"); %>';
 	var ddns_enable = '<% nvram_get("ddns_enable_x"); %>';
 	var ddns_server_x = '<% nvram_get("ddns_server_x"); %>';
 	var ddnsName;
 	var ddns_hostname_x = '<% nvram_get("ddns_hostname_x"); %>';
 	var ddns_username_x = '<% nvram_get("ddns_username_x"); %>';
 
+	if( ddns_hide == '1') {
+		document.getElementById("ddnsHostName_div").style.display = "none";
+		return false
+        }
 	switch (ddns_server_x){
 		case "WWW.NAMECHEAP.COM":
 			ddnsName = ddns_hostname_x + "." + ddns_username_x;
@@ -2483,6 +2497,10 @@ function notice_apply(){
 						<div id="wanIP_div" style="margin-top:5px;">
 							<span style="font-size:12px;font-family: Verdana, Arial, Helvetica, sans-serif;">WAN IP:</span>
 							<strong id="index_status" class="index_status" style="font-size:14px;"></strong>
+						</div>
+						<div id="speedtest_div" style="margin-top:5px;">
+							<span style="font-size:12px;font-family: Verdana, Arial, Helvetica, sans-serif;">SPEEDTEST:</span>
+							<strong id="index_speedtest" class="index_status" style="font-size:14px;"><a style="color:#FFF;text-decoration:underline;" href="/internet_speed.html">GO</a></strong>
 						</div>
 						<div id="ddnsHostName_div" style="margin-top:5px;word-break:break-all;word-wrap:break-word;width:180px;">
 							<span style="font-size:12px;font-family: Verdana, Arial, Helvetica, sans-serif;">DDNS:</span>
