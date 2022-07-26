@@ -13,14 +13,28 @@
 <script>
 if(parent.location.pathname.search("index") === -1) top.location.href = "../"+'<% networkmap_page(); %>';
 
+
 function initial(){
 		showtext(document.getElementById("disk_model_name"), parent.usbPorts[parent.currentUsbPort].deviceName);
 		if(sw_mode != "1")
 			inputHideCtrl(document.diskForm.btn_Hspda, 0);
+		setTimeout("updateEM7455();", 1);
 }
 
 function goHspdaWizard(){
 	parent.location.href = "/Advanced_Modem_Content.asp";
+}
+
+var dev3g = '<% nvram_get("Dev3G"); %>';
+
+function updateEM7455() {
+  if(dev3g != 'Sierra-EM7455') {
+    document.getElementById("em7455_div").style.display = "none";
+    return false
+  } 
+  document.getElementById("em7455_div").style.display = "";
+  document.getElementById("em7455_data").innerHTML = "PUT DATA HERE";
+  setTimeout("updateEM7455();", 2000);
 }
 </script>
 </head>
@@ -28,14 +42,24 @@ function goHspdaWizard(){
 <body class="statusbody" onload="initial();">
 <form method="post" name="diskForm" action="">
 <table width="95%" border="1" align="center" cellpadding="4" cellspacing="0" bordercolor="#6b8fa3" class="table1px">
-	<tr>
+  <tr>
     <td style="padding:5px 10px 0px 15px;">
     	<p class="formfonttitle_nwm"><#Modelname#>:</p>
     	<p style="padding-left:10px; margin-top:3px; background-color:#444f53; line-height:20px; color:#FFFFFF;" id="disk_model_name"></p>
       <div style="margin-top:5px;" class="line_horizontal"></div>
     </td>
   </tr>
-
+	
+    <tr>
+    <div id="em7455_div" style="margin-top:5px;">
+    <td style="padding:5px 10px 0px 15px;">
+    	<p class="formfonttitle_nwm">EM7455 Status</p>
+    	<p style="padding-left:10px; margin-top:3px; background-color:#444f53; line-height:20px; color:#FFFFFF;" id="em7455_data"></p>
+      <div style="margin-top:5px;" class="line_horizontal"></div>
+    </td>
+  </div>
+  </tr>
+	
   <tr>
     <td height="50" style="padding:10px 15px 0px 15px;">
     	<p class="formfonttitle_nwm" style="float:left;width:138px;"><#GO_HSDPA_SETTING#></p>
